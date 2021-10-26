@@ -1,6 +1,6 @@
 # os-cpu-scheduling
 
-> **Authored by are-la（软件2006陈鸣, CSU）**
+> **Authored by are-la（软件2006班陈鸣, CSU）**
 
 ### 数据结构
 
