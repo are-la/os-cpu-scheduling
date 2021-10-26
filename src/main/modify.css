@@ -1,0 +1,39 @@
+.text-area{
+    -fx-font-weight: bold;
+}
+.button {
+    -fx-font-family: "Arial Narrow";
+    -fx-font-weight: bold;
+    -fx-background-color: WHITE;
+    -fx-pref-width: 100;
+    -fx-pref-height: 40;
+}
+.button:hover{
+    -fx-background-color: #0099ff;
+}
+#submit {
+    -fx-font-family: "Arial Narrow";
+    -fx-font-weight: bold;
+    -fx-pref-width: 250;
+    -fx-pref-height: 20;
+}
+#create{
+    -fx-font-family: "Arial Narrow";
+    -fx-font-weight: bold;
+    -fx-pref-width: 250;
+    -fx-pref-height: 30;
+}
+#swapbtn{
+    -fx-font-family: "Arial Narrow";
+    -fx-font-weight: bold;
+    -fx-pref-width: 120;
+}
+#warning{
+    -fx-text-fill: red;
+}
+#memSizeBtn {
+    -fx-font-family: "Arial Narrow";
+    -fx-font-weight: bold;
+    -fx-pref-width: 90;
+    -fx-pref-height: 30;
+}
