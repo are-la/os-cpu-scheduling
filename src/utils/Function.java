@@ -1,10 +1,22 @@
 package utils;
 
+import javafx.application.Platform;
+import javafx.scene.control.Label;
+import javafx.scene.layout.Background;
+import javafx.scene.layout.BackgroundFill;
+import javafx.scene.layout.Pane;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
 import main.Main;
+
+import java.awt.*;
 import java.util.*;
 
 public class Function extends Main {
     public static int strcount = 0;
+    public static int index = Main.size;
+//    public static int begin=50;
+//    public static int end=50;
 
     //一键清空的清空函数
     public static void clear() {
@@ -17,6 +29,7 @@ public class Function extends Main {
         areaReady.setText("");
         areaHang.setText("");
         areaFinish.setText("");
+        areaStatus.setText("");
         readyStr = "";
         runStr = "";
         finishStr = "";
@@ -87,11 +100,35 @@ public class Function extends Main {
                 Table table = new Table(existPosition, behindlist.get(0).getSizeOfMem(), behindlist.get(0).getName() + "占用", behindlist.get(0).getName());
                 observableList.add(table);
 
+
+                //在未分分区表中显示出来
+                Pane pane1 = new Pane();
+                pane1.setPrefSize(220, behindlist.get(0).getSizeOfMem()*perpixel);
+                pane1.setLayoutX(0);
+                pane1.setLayoutY(existPosition*perpixel);
+                pane1.setBackground(new Background(new BackgroundFill(new Color(0.99, 0.4, 0.4, 1), null, null)));
+                Label labelPane = new Label(" 起始地址："+existPosition+"  "+"长度："+behindlist.get(0).getSizeOfMem()+"  "+"状态："+behindlist.get(0).getName()+"占用");
+                labelPane.setPrefSize(220, behindlist.get(0).getSizeOfMem()*perpixel);
+                labelPane.setFont(new Font("Arial",perpixel*2*(perpixel*behindlist.get(0).getSizeOfMem()/17.0)));
+                labelPane.setLayoutX(0);
+                labelPane.setLayoutY(0);
+                pane1.getChildren().add(labelPane);
+                Platform.runLater(new Runnable() {
+                    @Override
+                    public void run() {
+                        //更新JavaFX的主线程的代码放在此处
+                        Main.areaMe.getChildren().add(pane1);
+                    }
+                });
+
+                Main.areaFree.setText("");
+                freeMem();
+
                 readylist.add(behindlist.get(0));
                 strcount++;
                 if(strcount==10){
                     strcount=0;
-                    statuStr= runningPcb.getName()+"进程从后备队列调度进入就绪队列"+'\n';
+                    statuStr="";
                 }
                 statuStr = statuStr+ behindlist.get(0).getName()+"进程从后备队列调度进入就绪队列";
                 areaStatus.setText(statuStr);
@@ -114,7 +151,7 @@ public class Function extends Main {
             strcount++;
             if(strcount==10){
                 strcount=0;
-                statuStr= runningPcb.getName()+"进程进入CPU运行"+'\n';
+                statuStr="";
             }
             statuStr = statuStr+ runningPcb.getName()+"进程进入CPU运行"+'\n';
             areaStatus.setText(statuStr);
@@ -144,8 +181,26 @@ public class Function extends Main {
                 }
 
                 //内存区变空闲
-                for (int i = observableList.get(index).getStartAddress(); i < observableList.get(index).getStartAddress() + observableList.get(index).getLength(); i++)
-                    useRecode[i] = 0;
+                for (int i = observableList.get(index).getStartAddress(); i < observableList.get(index).getStartAddress() + observableList.get(index).getLength(); i++){
+                    useRecode[i] = 0;}
+
+
+                //在未分分区表中清理内存
+                Pane pane2 = new Pane();
+                pane2.setPrefSize(220, observableList.get(index).getLength()*perpixel);
+                pane2.setLayoutX(0);
+                pane2.setLayoutY(observableList.get(index).getStartAddress()*perpixel);
+                pane2.setBackground(new Background(new BackgroundFill(new Color(0.4, 0.8, 0.5, 1), null, null)));
+                Platform.runLater(new Runnable() {
+                    @Override
+                    public void run() {
+                        //更新JavaFX的主线程的代码放在此处
+                        Main.areaMe.getChildren().add(pane2);
+                    }
+                });
+
+                Main.areaFree.setText(" ");
+                freeMem();
 
                 observableList.remove(index);
 
@@ -178,6 +233,30 @@ public class Function extends Main {
 
         }
         return -1;
+    }
+
+    //寻找空闲内存区域并显示
+    public static void freeMem(){
+        useRecode[size] = 1;
+        int begin = 50;
+        int end = 50;
+        String str = "";
+        for(int i = 50; i<= size; i++){
+            if(useRecode[i] == 0){
+                ++end;
+            }
+            if(useRecode[i] == 1 &&(begin!=end)){
+                str= str +"起始地址："+begin+"  长度："+(end-begin)+"  未分配(空闲)"+'\n';
+                begin= i ;
+                end= i ;
+            }
+            if(useRecode[i]==1 &&(begin == end)){
+                begin = i;
+                end = i;
+            }
+        }
+        System.out.println("++="+"50处的空间为："+useRecode[50]);
+        Main.areaFree.setText(str);
     }
 
 

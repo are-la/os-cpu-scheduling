@@ -1,26 +1,37 @@
 package main;
 
 import javafx.application.Application;
+import javafx.beans.InvalidationListener;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
+import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.Background;
+import javafx.scene.layout.BackgroundFill;
+import javafx.scene.layout.CornerRadii;
 import javafx.scene.layout.Pane;
-import javafx.scene.paint.Color;
-import javafx.scene.paint.CycleMethod;
-import javafx.scene.paint.LinearGradient;
-import javafx.scene.paint.Stop;
+import javafx.scene.paint.*;
+//import java.awt.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
+import javafx.util.Callback;
 import utils.*;
 import view.*;
 
+
+import javax.swing.*;
 import java.util.*;
+import java.util.Timer;
+
+import static javafx.scene.paint.Color.*;
 
 
 public class Main extends Application {
@@ -33,6 +44,7 @@ public class Main extends Application {
     public static int time = 0;
     public static int arrivePosition = 50;
     public static int refreashtime = 1;
+    public static double perpixel = 6;
 
     //四个list存储pcb类信息
     public static List<PCB> readylist; //就绪队列
@@ -49,6 +61,10 @@ public class Main extends Application {
     public static TextArea areaBehind; //显示后备队列的进程
     public static TextArea areaHang; //显示被挂起的进程
     public static TextArea areaStatus; //显示进程的状态
+    public static TextArea areaFree;//显示未分分区表
+
+    public static Pane areaMe;//显示内存的占用情况
+    public static Pane areaOs;//显示操作系统占用的空间
 
     //用来存储进程信息的字符串
     public static String readyStr = "";
@@ -92,8 +108,8 @@ public class Main extends Application {
                 {254, 172, 94, 199, 121, 208},
                 {199, 121, 208, 75, 192, 200}};
         LinearGradient linear = new LinearGradient(0, 0, 1, 2, true, CycleMethod.REPEAT, new
-                Stop[]{new Stop(0, Color.rgb(linearList[i][0], linearList[i][1], linearList[i][2])),
-                new Stop(0.5f, Color.rgb(linearList[i][3], linearList[i][4], linearList[i][5]))});
+                Stop[]{new Stop(0, rgb(linearList[i][0], linearList[i][1], linearList[i][2])),
+                new Stop(0.5f, rgb(linearList[i][3], linearList[i][4], linearList[i][5]))});
         return linear;
     }
 
@@ -118,39 +134,39 @@ public class Main extends Application {
         Label labelBehind = new Label("后备队列：");
         labelBehind.setFont(Font.font(20));
         labelBehind.setLayoutX(20);
-        labelBehind.setLayoutY(50);
+        labelBehind.setLayoutY(20);
         pane.getChildren().add(labelBehind);
 
         //后备队列展示框
         areaBehind = new TextArea();
 //        area.setMaxHeight(800); // 设置多行输入框的最大高度
-        areaBehind.setPrefSize(220, 600); // 设置多行输入框的推荐宽高
+        areaBehind.setPrefSize(220, 340); // 设置多行输入框的推荐宽高
         areaBehind.setEditable(false); // 设置多行输入框能否编辑
         areaBehind.setWrapText(true); // 设置多行输入框是否支持自动换行。true表示支持，false表示不支持。
         areaBehind.setLayoutX(20);
-        areaBehind.setLayoutY(90);
+        areaBehind.setLayoutY(60);
         pane.getChildren().add(areaBehind);
 
         //展示文字就绪队列
         Label labelRea = new Label("就绪队列：");
         labelRea.setFont(Font.font(20));
-        labelRea.setLayoutX(270);
-        labelRea.setLayoutY(50);
+        labelRea.setLayoutX(20);
+        labelRea.setLayoutY(410);
         pane.getChildren().add(labelRea);
 
         //就绪队列展示框
         areaReady = new TextArea();
-        areaReady.setPrefSize(220, 290); // 设置多行输入框的推荐宽高
+        areaReady.setPrefSize(220, 210); // 设置多行输入框的推荐宽高
         areaReady.setEditable(false); // 设置多行输入框能否编辑
         areaReady.setWrapText(true); // 设置多行输入框是否支持自动换行。true表示支持，false表示不支持。
-        areaReady.setLayoutX(270);
-        areaReady.setLayoutY(90);
+        areaReady.setLayoutX(20);
+        areaReady.setLayoutY(450);
         pane.getChildren().add(areaReady);
 
         //设置刷新时间
         Label labelRefreash = new Label("设置刷新时间(秒)：");
         labelRefreash.setLayoutX(1020);
-        labelRefreash.setLayoutY(480);
+        labelRefreash.setLayoutY(450);
         labelRefreash.setFont(Font.font(17));
         pane.getChildren().add(labelRefreash);
 
@@ -158,13 +174,13 @@ public class Main extends Application {
         items.addAll(1, 2, 3, 4, 5);
         Spinner<Integer> spinner = new Spinner<>(items);
         spinner.setLayoutX(1020);
-        spinner.setLayoutY(510);
+        spinner.setLayoutY(480);
         pane.getChildren().add(spinner);
 
         Button submit = new Button("提交");
         submit.setId("submit");
         submit.setLayoutX(1185);
-        submit.setLayoutY(510);
+        submit.setLayoutY(480);
         pane.getChildren().add(submit);
 
         submit.setOnAction(new EventHandler<ActionEvent>() {
@@ -176,18 +192,41 @@ public class Main extends Application {
         });
 
 
-        //显示文字内存分配情况
-        Label labelTable = new Label("内存分配情况：");
+        //显示文字未分分区表
+        Label labelTable = new Label("未分分区表(图像化展示)：");
         labelTable.setFont(Font.font(20));
-        labelTable.setLayoutX(770);
-        labelTable.setLayoutY(350);
+        labelTable.setLayoutX(270);
+        labelTable.setLayoutY(20);
         pane.getChildren().add(labelTable);
+
+        //内存占用展示框
+        areaMe = new Pane();
+        areaMe.setPrefSize(220, 600);
+        areaMe.setLayoutX(270);
+        areaMe.setLayoutY(60);
+        areaMe.setBackground(new Background(new BackgroundFill(new Color(0.4, 0.8, 0.5, 1), null, null)));
+
+        //显示OS占用空间
+        areaOs = new Pane();
+        areaOs.setPrefSize(220, 50*perpixel);
+        areaOs.setLayoutX(0);
+        areaOs.setLayoutY(0);
+        areaOs.setBackground(new Background(new BackgroundFill(new Color(0.99, 0.4, 0.4, 1), null, null)));
+
+        Label labelOs = new Label(" 起始地址：0  长度：50  状态：系统占用");
+        labelOs.setFont(new Font("Arial",perpixel*2));
+        labelOs.setLayoutX(0);
+        labelOs.setLayoutY(0);
+        areaOs.getChildren().add(labelOs);
+        areaMe.getChildren().add(areaOs);
+
+        pane.getChildren().add(areaMe);
 
         //设置内存大小的开关
         memSizeBtn = new Button("设置当前内存大小:100");
         memSizeBtn.setId("memSizeBtn");
         memSizeBtn.setLayoutX(1020);
-        memSizeBtn.setLayoutY(550);
+        memSizeBtn.setLayoutY(520);
         memSizeBtn.setPrefSize(170,20);
         pane.getChildren().add(memSizeBtn);
 
@@ -215,6 +254,28 @@ public class Main extends Application {
             }
         });
 
+        //显示文字未分分区表
+        Label labelFree = new Label("未分分区表：");
+        labelFree.setFont(Font.font(20));
+        labelFree.setLayoutX(520);
+        labelFree.setLayoutY(20);
+        pane.getChildren().add(labelFree);
+
+        areaFree = new TextArea();
+        areaFree.setPrefSize(220, 280); // 设置多行输入框的推荐宽高
+        areaFree.setEditable(false); // 设置多行输入框能否编辑
+        areaFree.setWrapText(true); // 设置多行输入框是否支持自动换行。true表示支持，false表示不支持。
+        areaFree.setLayoutX(520);
+        areaFree.setLayoutY(60);
+        pane.getChildren().add(areaFree);
+
+        //显示文字内存占用表
+        Label labelMem = new Label("内存占用表：");
+        labelMem.setFont(Font.font(20));
+        labelMem.setLayoutX(520);
+        labelMem.setLayoutY(350);
+        pane.getChildren().add(labelMem);
+
         //显示内存的表
         TableView<Table> tableCPU = new TableView<Table>(observableList);
 
@@ -239,22 +300,22 @@ public class Main extends Application {
         tableCPU.getColumns().add(tc_start);
         tableCPU.getColumns().add(tc_length);
         tableCPU.getColumns().add(tc_status);
-        tableCPU.setPrefHeight(300);
+        tableCPU.setPrefHeight(280);
         tableCPU.setPrefWidth(220);
-        tableCPU.setLayoutX(770);
+        tableCPU.setLayoutX(520);
         tableCPU.setLayoutY(390);
+
 
         //操作系统占用情况
         Table table = new Table(0, 50, "系统占用", "操作系统"); //初始化默认数据
         observableList.add(table);
-
         pane.getChildren().add(tableCPU);
 
         Labelwarning = new Label("内存不足,无法添加进程！");
         Labelwarning.setId("warning");
         Labelwarning.setFont(Font.font(20));
-        Labelwarning.setLayoutX(800);
-        Labelwarning.setLayoutY(690);
+        Labelwarning.setLayoutX(270);
+        Labelwarning.setLayoutY(670);
         pane.getChildren().add(Labelwarning);
         Labelwarning.setVisible(false);
 
@@ -267,56 +328,56 @@ public class Main extends Application {
         //显示文字运行队列
         Label labelRun = new Label("CPU运行进程：");
         labelRun.setFont(Font.font(20));
-        labelRun.setLayoutX(270);
-        labelRun.setLayoutY(390);
+        labelRun.setLayoutX(770);
+        labelRun.setLayoutY(20);
         pane.getChildren().add(labelRun);
 
         //运行队列textArea设置
         areaRun = new TextArea();
-        areaRun.setPrefSize(220, 260); // 设置多行输入框的推荐宽高
+        areaRun.setPrefSize(220, 100); // 设置多行输入框的推荐宽高
         areaRun.setEditable(false); // 设置多行输入框能否编辑
         areaRun.setWrapText(true); // 设置多行输入框是否支持自动换行。true表示支持，false表示不支持。
-        areaRun.setLayoutX(270);
-        areaRun.setLayoutY(430);
+        areaRun.setLayoutX(770);
+        areaRun.setLayoutY(60);
 
         //显示文字已经完成的进程
         Label labelFinish = new Label("已经完成的进程:");
         labelFinish.setFont(Font.font(20));
-        labelFinish.setLayoutX(520);
-        labelFinish.setLayoutY(50);
+        labelFinish.setLayoutX(770);
+        labelFinish.setLayoutY(360);
         pane.getChildren().add(labelFinish);
 
         //完成队列textArea设置
         areaFinish = new TextArea();
 //        area.setMaxHeight(800); // 设置多行输入框的最大高度
-        areaFinish.setPrefSize(220, 600); // 设置多行输入框的推荐宽高
+        areaFinish.setPrefSize(220, 270); // 设置多行输入框的推荐宽高
         areaFinish.setEditable(false); // 设置多行输入框能否编辑
         areaFinish.setWrapText(true); // 设置多行输入框是否支持自动换行。true表示支持，false表示不支持。
-        areaFinish.setLayoutX(520);
-        areaFinish.setLayoutY(90);
+        areaFinish.setLayoutX(770);
+        areaFinish.setLayoutY(400);
         pane.getChildren().add(areaFinish);
 
         //显示文字挂起队列
         Label labelHang = new Label("挂起队列:");
         labelHang.setFont(Font.font(20));
         labelHang.setLayoutX(770);
-        labelHang.setLayoutY(50);
+        labelHang.setLayoutY(170);
         pane.getChildren().add(labelHang);
 
         //挂起队列textArea设置
         areaHang = new TextArea();
-        areaHang.setPrefSize(220, 260); // 设置多行输入框的推荐宽高
+        areaHang.setPrefSize(220, 130); // 设置多行输入框的推荐宽高
         areaHang.setEditable(false); // 设置多行输入框能否编辑
         areaHang.setWrapText(true); // 设置多行输入框是否支持自动换行。true表示支持，false表示不支持。
         areaHang.setLayoutX(770);
-        areaHang.setLayoutY(90);
+        areaHang.setLayoutY(210);
         pane.getChildren().add(areaHang);
 
         //进程状态设置
         Label labelStatu = new Label("进程状态：");
         labelStatu.setFont(Font.font(20));
         labelStatu.setLayoutX(1020);
-        labelStatu.setLayoutY(50);
+        labelStatu.setLayoutY(20);
         pane.getChildren().add(labelStatu);
         //进程状态textarea设置
         areaStatus = new TextArea();
@@ -324,7 +385,7 @@ public class Main extends Application {
         areaStatus.setEditable(false); // 设置多行输入框能否编辑
         areaStatus.setWrapText(true); // 设置多行输入框是否支持自动换行。true表示支持，false表示不支持。
         areaStatus.setLayoutX(1020);
-        areaStatus.setLayoutY(90);
+        areaStatus.setLayoutY(60);
         pane.getChildren().add( areaStatus);
 
 
@@ -333,20 +394,20 @@ public class Main extends Application {
         labelCount.setPrefHeight(40);
         labelCount.setFont(Font.font(17));
         labelCount.setLayoutX(1020);
-        labelCount.setLayoutY(390);
+        labelCount.setLayoutY(360);
 
         //输入想产生多少进程的框
         TextField textField = new TextField();
         textField.setEditable(true);
         textField.setLayoutX(1020);
-        textField.setLayoutY(430);
+        textField.setLayoutY(400);
         textField.setPrefSize(150,40);
 
 
         //提交随机生成进程按钮的行为事件
         Button submitCount = new Button("提交");
         submitCount.setLayoutX(1180);
-        submitCount.setLayoutY(440);
+        submitCount.setLayoutY(410);
         submitCount.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent actionEvent) {
@@ -354,7 +415,14 @@ public class Main extends Application {
                 if (textField.getText().equals("")) {
                     Alert alert = new Alert(Alert.AlertType.INFORMATION);
                     alert.setTitle("错误提示");
-                    alert.setHeaderText("请输入进程数");
+                    alert.setHeaderText("请输入进程数！");
+                    alert.showAndWait();
+                    return;
+                }
+                if(textField.getText().equals("0")){
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                    alert.setTitle("错误提示");
+                    alert.setHeaderText("进程数不能为0！   ");
                     alert.showAndWait();
                     return;
                 }
@@ -367,7 +435,7 @@ public class Main extends Application {
         });
 
         //显示信息: 内存剩余
-        memInf = new TextField("内存剩余:  50");
+        memInf = new TextField("内存剩余:  70");
         memInf.setLayoutX(220);
         memInf.setLayoutY(720);
         memInf.setEditable(false);
@@ -404,7 +472,7 @@ public class Main extends Application {
 
         //手动创建新进程按钮
         Button createBtn = new Button("创建一个新进程");
-        createBtn.setLayoutY(630);
+        createBtn.setLayoutY(600);
         createBtn.setLayoutX(1020);
         createBtn.setPrefWidth(170);
         createBtn.setId("create");
@@ -489,7 +557,7 @@ public class Main extends Application {
         //开始运行按钮
         Button btnRun = new Button("开始运行");
         btnRun.setLayoutX(1020);
-        btnRun.setLayoutY(670);
+        btnRun.setLayoutY(640);
         btnRun.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent actionEvent) {
@@ -502,7 +570,7 @@ public class Main extends Application {
         //暂停按钮
         Button btnStop = new Button("暂停");
         btnStop.setLayoutX(1150);
-        btnStop.setLayoutY(670);
+        btnStop.setLayoutY(640);
         btnStop.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent actionEvent) {
@@ -591,7 +659,7 @@ public class Main extends Application {
 
         //切换调度算法
         Button swapBtn = new Button("切换到时间片调度");
-        swapBtn.setLayoutY(590);
+        swapBtn.setLayoutY(560);
         swapBtn.setLayoutX(1020);
         swapBtn.setPrefWidth(170);
 
